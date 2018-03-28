@@ -37,6 +37,8 @@ from boto.route53.record import ResourceRecordSets
 from boto.route53.zone import Zone
 from boto.compat import six, urllib
 
+import time
+
 
 HZXML = """<?xml version="1.0" encoding="UTF-8"?>
 <CreateHostedZoneRequest xmlns="%(xmlns)s">
@@ -436,9 +438,15 @@ class Route53Connection(AWSAuthConnection):
         params = {'type': type, 'name': name,
                   'identifier': identifier, 'maxitems': maxitems}
         uri = '/%s/hostedzone/%s/rrset' % (self.Version, hosted_zone_id)
-        response = self.make_request('GET', uri, params=params)
-        body = response.read()
-        boto.log.debug(body)
+        while True:
+            response = self.make_request('GET', uri, params=params)
+            body = response.read()
+            boto.log.debug(body)
+            if response.status != 400:
+                break
+            print 'FAIL! waiting 10 seconds and trying again'
+            time.sleep(10)
+
         if response.status >= 300:
             raise exception.DNSServerError(response.status,
                                            response.reason,
